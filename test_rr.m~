@@ -1,7 +1,6 @@
 addpath('./mr/')
 
 robot = get2RRobot();
-rng(1);
 
 start = [1 0];
 target = [-0.5 0.5];
@@ -18,8 +17,8 @@ L2 = 0.5;
 % B = @(theta1,theta2) [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta2); ...
 %                     L1*cos(theta1)+L2*cos(theta1+theta2) L2*cos(theta1+theta2)];
 
-R = [100 0; 0 100]; % penalize control
-Q = [0.01 0; 0 0.01]; % penalize states
+R = [10 0; 0 10]; % penalize control
+Q = [1 0; 0 1]; % penalize states
 weights = [0, 0, 0, 1, 1, 0];
 endEffector = 'tool';
 qinit = homeConfiguration(robot);
@@ -65,9 +64,13 @@ view(2)
 ax = gca;
 ax.Projection = 'orthographic';
 hold on
+% plot(points(:,1),points(:,2),'k')
+% axis([-0.5 1 -0.5 1])
 
 framesPerSecond = 1/dt;
 r = rateControl(framesPerSecond);
+% figure;
+% h = scatter(start(1),start(2));
 
 for i = 1:length(qs)
 
@@ -84,14 +87,14 @@ for i = 1:length(qs)
     end
 
     drawnow
-    filename = 'added_noise.gif';
+    filename = 'testnew51.gif';
     frame = getframe(1);
     im = frame2im(frame);
     [imind,cm] = rgb2ind(im,256);
     if i == 1 
-      imwrite(imind,cm,filename,'gif', 'Loopcount',inf);
+      imwrite(imind,cm,filename,'gif', 'Loopcount',50);
     else
-      imwrite(imind,cm,filename,'gif','Writemode','append', 'DelayTime', dt);
+      imwrite(imind,cm,filename,'gif','WriteMode','append', 'DelayTime');
     end
     waitfor(r);
 end
