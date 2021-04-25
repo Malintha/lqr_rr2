@@ -11,7 +11,7 @@ t = (0:dt:5);
 ik = inverseKinematics('RigidBodyTree', robot);
 % get inverseK solution to stabilize around
 A = [1 0; 0 1];
-B = [1 0; 0 1]*dt;
+B = [1.005 0; 0 1.005]*dt;
 L1 = 0.5;
 L2 = 0.5;
 
@@ -23,7 +23,7 @@ Q = [0.01 0; 0 0.01]; % penalize states
 weights = [0, 0, 0, 1, 1, 0];
 endEffector = 'tool';
 qinit = homeConfiguration(robot);
-y_tr = getTransform(robot, qinit, 'tool', 'base');
+y_tr = getTransform(robot, qinit, endEffector, 'base');
 y = tform2trvec(y_tr);
 y = y(1:2)';
 qs = [];
@@ -33,26 +33,27 @@ target_tr = trvec2tform([target 0]);
 x = y;
 
 xs = [];
-traj = CartesianTrajectory(st_tr, target_tr, 5, 5/dt, 3);
+traj = CartesianTrajectory(st_tr, target_tr, 5, 5/dt, 5);
 
-for i=1:length(traj)
-    [~, x_bar] = TransToRp(traj{i});
+for i=1:length(traj)+10
+    if i<length(traj)
+        [~, x_bar] = TransToRp(traj{i});
+    else
+        [~, x_bar] = TransToRp(traj{end});
+    end
     x_bar = x_bar(1:2);
     x_hat = (y - x_bar);
     ut = -k*x_hat(1:2);
-    
     
 %     do inverse kinematics and apply the control to kinematics robot
     xt = A*x + B*ut;  
     q = ik(endEffector, trvec2tform([xt' 0]), weights, qinit);
     
     xs = [xs xt];
-    
-    % adding a bit of observation noise
-    y = xt + [randn(); randn()]/1000;
-    fprintf('%d %d \n',xt,y);
+    y = xt;
     x = xt;
-    
+%     fprintf('%d %d \n',xt,y);
+
     qinit = q;
     qs = [qs q];
 end
@@ -80,7 +81,7 @@ for i = 1:length(qs)
         hlines(j).LineWidth = 3; %chanding line width
         hlines(j).Color=[1 0 0.5];%changing line color
         hlines(j).Marker='o';%changing marker type
-        hlines(j).MarkerSize=10; %changing marker size
+        hlines(j).MarkerSize=5; %changing marker size
     end
 
     drawnow

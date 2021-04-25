@@ -1,6 +1,7 @@
-addpath('./mr/')
+addpath('.5/mr/')
 
 robot = get2RRobot();
+rng(1);
 
 start = [1 0];
 target = [-0.5 0.5];
@@ -9,7 +10,7 @@ t = (0:dt:5);
 
 ik = inverseKinematics('RigidBodyTree', robot);
 % get inverseK solution to stabilize around
-A = [1 0; 0 1];
+A = [1.001 0; 0 1.001];
 B = [1 0; 0 1]*dt;
 L1 = 0.5;
 L2 = 0.5;
@@ -17,12 +18,12 @@ L2 = 0.5;
 % B = @(theta1,theta2) [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta2); ...
 %                     L1*cos(theta1)+L2*cos(theta1+theta2) L2*cos(theta1+theta2)];
 
-R = [10 0; 0 10]; % penalize control
-Q = [1 0; 0 1]; % penalize states
+R = [100 0; 0 100]; % penalize control
+Q = [0.01 0; 0 0.01]; % penalize states
 weights = [0, 0, 0, 1, 1, 0];
 endEffector = 'tool';
 qinit = homeConfiguration(robot);
-y_tr = getTransform(robot, qinit, 'tool', 'base');
+y_tr = getTransform(robot, qinit, endEffector, 'base');
 y = tform2trvec(y_tr);
 y = y(1:2)';
 qs = [];
@@ -32,14 +33,17 @@ target_tr = trvec2tform([target 0]);
 x = y;
 
 xs = [];
-traj = CartesianTrajectory(st_tr, target_tr, 5, 5/dt, 3);
+traj = CartesianTrajectory(st_tr, target_tr, 5, 5/dt, 5);
 
-for i=1:length(traj)
-    [~, x_bar] = TransToRp(traj{i});
+for i=1:length(traj)+10
+    if i<length(traj)
+        [~, x_bar] = TransToRp(traj{i});
+    else
+        [~, x_bar] = TransToRp(traj{end});
+    end
     x_bar = x_bar(1:2);
     x_hat = (y - x_bar);
     ut = -k*x_hat(1:2);
-    
     
 %     do inverse kinematics and apply the control to kinematics robot
     xt = A*x + B*ut;  
@@ -48,7 +52,7 @@ for i=1:length(traj)
     xs = [xs xt];
     
     % adding a bit of observation noise
-    y = xt + [randn(); randn()]/1000;
+    y = xt;
     fprintf('%d %d \n',xt,y);
     x = xt;
     
@@ -64,13 +68,9 @@ view(2)
 ax = gca;
 ax.Projection = 'orthographic';
 hold on
-% plot(points(:,1),points(:,2),'k')
-% axis([-0.5 1 -0.5 1])
 
 framesPerSecond = 1/dt;
 r = rateControl(framesPerSecond);
-% figure;
-% h = scatter(start(1),start(2));
 
 for i = 1:length(qs)
 
@@ -83,18 +83,18 @@ for i = 1:length(qs)
         hlines(j).LineWidth = 3; %chanding line width
         hlines(j).Color=[1 0 0.5];%changing line color
         hlines(j).Marker='o';%changing marker type
-        hlines(j).MarkerSize=10; %changing marker size
+        hlines(j).MarkerSize=5; %changing marker size
     end
 
     drawnow
-    filename = 'testnew51.gif';
+    filename = 'added_noise.gif';
     frame = getframe(1);
     im = frame2im(frame);
     [imind,cm] = rgb2ind(im,256);
     if i == 1 
-      imwrite(imind,cm,filename,'gif', 'Loopcount',50);
+      imwrite(imind,cm,filename,'gif', 'Loopcount',inf);
     else
-      imwrite(imind,cm,filename,'gif','WriteMode','append', 'DelayTime');
+      imwrite(imind,cm,filename,'gif','Writemode','append', 'DelayTime', dt);
     end
     waitfor(r);
 end
