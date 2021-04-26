@@ -1,24 +1,32 @@
+clear;
 addpath('./mr/')
 
-robot = get2RRobot();
+% L1, L2: arm lengths
+L1 = 0.5;
+L2 = 0.5;
+
+robot = get2RRobot(L1, L2);
 rng(1);
 
+% start and goal positions for the end effector
 start = [1 0];
 target = [-0.5 0.8];
 dt = 0.1;
 
-ik = inverseKinematics('RigidBodyTree', robot);
-% linear matrices for the system with small noise in the system
-A = [1.0 0; 0 1.001];
-B = [1 0; 0 1]*dt;
-L1 = 0.5;
-L2 = 0.5;
-
 % B = @(theta1,theta2) [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta2); ...
 %                     L1*cos(theta1)+L2*cos(theta1+theta2) L2*cos(theta1+theta2)];
 %%
-R = [10 0; 0 10]; % penalize control
-Q = [1 0; 0 1]; % penalize states
+% y: observation
+% x: state
+% R: control penalization
+% Q: state penalization
+% A,B system matrices
+
+A = [1 0; 0 1];
+B = [1 0; 0 1]*dt;
+R = [10 0; 0 10];
+Q = [1 0; 0 1];
+
 weights = [0, 0, 0, 1, 1, 0];
 endEffector = 'tool';
 qinit = homeConfiguration(robot);
@@ -36,6 +44,7 @@ us = [];
 es = [];
 traj = CartesianTrajectory(st_tr, target_tr, 5, 5/dt, 5);
 
+ik = inverseKinematics('RigidBodyTree', robot);
 for i=1:length(traj) + 10
     if i<length(traj)
         [~, x_bar] = TransToRp(traj{i});
@@ -59,14 +68,12 @@ for i=1:length(traj) + 10
     qs = [qs q];
 end
 
-
 figure
 f1 = show(robot,qs(:,1));
 view(2)
 ax = gca;
 ax.Projection = 'orthographic';
 hold on
-
 framesPerSecond = 1/dt;
 r = rateControl(framesPerSecond);
 
@@ -83,7 +90,7 @@ for i = 1:length(qs)
         hlines(j).MarkerSize=5; %changing marker size
     end
     drawnow
-    filename = 'added_noise.gif';
+    filename = 'added_noise1.gif';
     frame = getframe(1);
     im = frame2im(frame);
     [imind,cm] = rgb2ind(im,256);
@@ -94,42 +101,20 @@ for i = 1:length(qs)
     end
     waitfor(r);
 end
+hold off
 
-%% draw the controls and state
+%% draw the controls and state plots
 fprintf('control: %d', norm(us));
 t = (dt:dt:length(es)*dt);
+
 figure
 plot(t,es(1,:),'-r','LineWidth',2);
+xlabel('Time (s)');
+ylabel('Absolute error (m)');
+
 figure
 plot(t,xs(1,:),'-r',t,xs(2,:),'-g','LineWidth',2);
 legend('X','Y');
+xlabel('Time (s)');
+ylabel('Displacement(m)');
 
-%% 
-function[robot] = get2RRobot()
-    
-    robot = rigidBodyTree('DataFormat','column','MaxNumBodies',3);
-    L1 = 0.5;
-    L2 = 0.5;
-
-    body = rigidBody('link1');
-    joint = rigidBodyJoint('joint1', 'revolute');
-    setFixedTransform(joint,trvec2tform([0 0 0]));
-    joint.JointAxis = [0 0 1];
-    body.Joint = joint;
-    addBody(robot, body, 'base');
-
-    body = rigidBody('link2');
-    joint = rigidBodyJoint('joint2','revolute');
-    setFixedTransform(joint, trvec2tform([L1,0,0]));
-    joint.JointAxis = [0 0 1];
-    body.Joint = joint;
-    addBody(robot, body, 'link1');
-
-    body = rigidBody('tool');
-    joint = rigidBodyJoint('fix1','fixed');
-    setFixedTransform(joint, trvec2tform([L2, 0, 0]));
-    body.Joint = joint;
-    addBody(robot, body, 'link2');
-
-%     showdetails(robot)
-end
