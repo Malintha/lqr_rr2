@@ -4,22 +4,21 @@ robot = get2RRobot();
 rng(1);
 
 start = [1 0];
-target = [-0.5 0.5];
+target = [-0.5 0.8];
 dt = 0.1;
-t = (0:dt:5);
 
 ik = inverseKinematics('RigidBodyTree', robot);
-% get inverseK solution to stabilize around
-A = [1 0; 0 1];
-B = [1.005 0; 0 1.005]*dt;
+% linear matrices for the system with small noise in the system
+A = [1.0 0; 0 1.001];
+B = [1 0; 0 1]*dt;
 L1 = 0.5;
 L2 = 0.5;
 
 % B = @(theta1,theta2) [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta2); ...
 %                     L1*cos(theta1)+L2*cos(theta1+theta2) L2*cos(theta1+theta2)];
-
-R = [100 0; 0 100]; % penalize control
-Q = [0.01 0; 0 0.01]; % penalize states
+%%
+R = [10 0; 0 10]; % penalize control
+Q = [1 0; 0 1]; % penalize states
 weights = [0, 0, 0, 1, 1, 0];
 endEffector = 'tool';
 qinit = homeConfiguration(robot);
@@ -33,9 +32,11 @@ target_tr = trvec2tform([target 0]);
 x = y;
 
 xs = [];
+us = [];
+es = [];
 traj = CartesianTrajectory(st_tr, target_tr, 5, 5/dt, 5);
 
-for i=1:length(traj)+10
+for i=1:length(traj) + 10
     if i<length(traj)
         [~, x_bar] = TransToRp(traj{i});
     else
@@ -48,12 +49,12 @@ for i=1:length(traj)+10
 %     do inverse kinematics and apply the control to kinematics robot
     xt = A*x + B*ut;  
     q = ik(endEffector, trvec2tform([xt' 0]), weights, qinit);
-    
+    % calculate absolute error
+    es = [es norm(xt-x_bar)];
     xs = [xs xt];
-    y = xt;
-    x = xt;
-%     fprintf('%d %d \n',xt,y);
-
+    us = [us ut];
+    y = xt + x_hat*0.001; %observation
+    x = xt; %state
     qinit = q;
     qs = [qs q];
 end
@@ -61,7 +62,6 @@ end
 
 figure
 f1 = show(robot,qs(:,1));
-
 view(2)
 ax = gca;
 ax.Projection = 'orthographic';
@@ -71,7 +71,6 @@ framesPerSecond = 1/dt;
 r = rateControl(framesPerSecond);
 
 for i = 1:length(qs)
-
     f1 = show(robot,qs(:,i),'PreservePlot',false);
     h=findall(f1); %finding all objects in figure
     hlines=h.findobj('Type','Line'); %finding line object 
@@ -83,7 +82,6 @@ for i = 1:length(qs)
         hlines(j).Marker='o';%changing marker type
         hlines(j).MarkerSize=5; %changing marker size
     end
-
     drawnow
     filename = 'added_noise.gif';
     frame = getframe(1);
@@ -97,6 +95,16 @@ for i = 1:length(qs)
     waitfor(r);
 end
 
+%% draw the controls and state
+fprintf('control: %d', norm(us));
+t = (dt:dt:length(es)*dt);
+figure
+plot(t,es(1,:),'-r','LineWidth',2);
+figure
+plot(t,xs(1,:),'-r',t,xs(2,:),'-g','LineWidth',2);
+legend('X','Y');
+
+%% 
 function[robot] = get2RRobot()
     
     robot = rigidBodyTree('DataFormat','column','MaxNumBodies',3);
@@ -123,5 +131,5 @@ function[robot] = get2RRobot()
     body.Joint = joint;
     addBody(robot, body, 'link2');
 
-    showdetails(robot)
+%     showdetails(robot)
 end
