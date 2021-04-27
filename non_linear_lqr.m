@@ -4,69 +4,70 @@ addpath('./mr/')
 % L1, L2: arm lengths
 L1 = 0.5;
 L2 = 0.5;
+theta_min = 0.2;
 
 robot = get2RRobot(L1, L2);
-rng(1);
 
 % start and goal positions for the end effector
-start = [1 0];
+qinit = [theta_min ; theta_min];
+
+start = [L1*cos(theta_min) + L2*cos(theta_min) ...
+        L1*sin(theta_min) + L2*sin(theta_min)];
+
 target = [-0.5 0.8];
 dt = 0.1;
+Tf = 5;
 
-% B = @(theta1,theta2) [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta2); ...
-%                     L1*cos(theta1)+L2*cos(theta1+theta2) L2*cos(theta1+theta2)];
-%%
-% y: observation
-% x: state
-% R: control penalization
-% Q: state penalization
-% A,B system matrices
-
-A = [1 0; 0 1];
-B = [1 0; 0 1]*dt;
-R = [10 0; 0 10];
-Q = [1 0; 0 1];
-
-weights = [0, 0, 0, 1, 1, 0];
-endEffector = 'tool';
-qinit = homeConfiguration(robot);
-y_tr = getTransform(robot, qinit, endEffector, 'base');
-y = tform2trvec(y_tr);
-y = y(1:2)';
-qs = [];
-k = lqr(A, B, Q, R);
 st_tr = trvec2tform([start 0]);
 target_tr = trvec2tform([target 0]);
-x = y;
+traj = CartesianTrajectory(st_tr, target_tr, 5, 5/dt, 5);
+
+
+A = eye(2);
+B = @(theta1,theta2) [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta2); ...
+                    L1*cos(theta1)+L2*cos(theta1+theta2) L2*cos(theta1+theta2)]*dt;
+
+Q = eye(2);
+R = eye(2);
+
+x = start';
+y = x;
+q = qinit;
 
 xs = [];
 us = [];
 es = [];
-traj = CartesianTrajectory(st_tr, target_tr, 5, 5/dt, 5);
-
-ik = inverseKinematics('RigidBodyTree', robot);
-for i=1:length(traj) + 10
+qs = [];
+for i=1:length(traj) + 5
     if i<length(traj)
         [~, x_bar] = TransToRp(traj{i});
     else
         [~, x_bar] = TransToRp(traj{end});
     end
+    Bt = B(q(1), q(2));
+    k = lqr(A, Bt, Q, R);
+    
+%     centralization
     x_bar = x_bar(1:2);
     x_hat = (y - x_bar);
     ut = -k*x_hat(1:2);
     
-%     do inverse kinematics and apply the control to kinematics robot
-    xt = A*x + B*ut;  
-    q = ik(endEffector, trvec2tform([xt' 0]), weights, qinit);
-    % calculate absolute error
+%     do forward kinematics
+    xt = A*x + Bt*ut;  
+    q = q + ut*dt;
+    
+    y = xt; %perfect full state observation 
+    x = xt; %state
+    
+    % plotting data
     es = [es norm(xt-x_bar)];
     xs = [xs xt];
     us = [us ut];
-    y = xt + x_hat*0.001; %observation
-    x = xt; %state
-    qinit = q;
     qs = [qs q];
+    
 end
+
+% animate the robot
 
 figure
 f1 = show(robot,qs(:,1));
@@ -103,14 +104,18 @@ for i = 1:length(qs)
 end
 hold off
 
-%% draw the controls and state plots
-fprintf('control: %d', norm(us));
+% visualize the plots
+fprintf('Total control: %d', norm(us));
 t = (dt:dt:length(es)*dt);
-xlabel('Time (s)');
-ylabel('absolute error (m)');
+
 figure
 plot(t,es(1,:),'-r','LineWidth',2);
+xlabel('Time (s)');
+ylabel('Absolute error (m)');
+
 figure
 plot(t,xs(1,:),'-r',t,xs(2,:),'-g','LineWidth',2);
 legend('X','Y');
+xlabel('Time (s)');
+ylabel('Displacement(m)');
 

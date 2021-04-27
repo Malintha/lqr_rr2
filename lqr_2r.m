@@ -27,7 +27,7 @@ B = [1 0; 0 1]*dt;
 R = [10 0; 0 10];
 Q = [1 0; 0 1];
 
-weights = [0, 0, 0, 1, 1, 0];
+weights = [0, 0, 0, 0.9, 0.9, 0];
 endEffector = 'tool';
 qinit = homeConfiguration(robot);
 y_tr = getTransform(robot, qinit, endEffector, 'base');
@@ -62,7 +62,7 @@ for i=1:length(traj) + 10
     es = [es norm(xt-x_bar)];
     xs = [xs xt];
     us = [us ut];
-    y = xt + x_hat*0.001; %observation
+    y = xt + x_hat*0.001; %observation with small noise
     x = xt; %state
     qinit = q;
     qs = [qs q];
@@ -103,8 +103,8 @@ for i = 1:length(qs)
 end
 hold off
 
-%% draw the controls and state plots
-fprintf('control: %d', norm(us));
+%% draw the error and state plots
+fprintf('Total control: %d', norm(us));
 t = (dt:dt:length(es)*dt);
 
 figure

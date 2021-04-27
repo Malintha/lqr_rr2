@@ -5,9 +5,9 @@ L2 = 0.5;
 robot = get2RRobot(L1, L2);
 rng(1);
 dt = 0.1;
-Qn = 0.1*eye(2); % system noise cov
-Rn = [1 0; 0 1]; % measurement noise cov
-Nn = [1.5; 1.5];
+Qn = [2 1.5; 1.5 2]; % system noise cov
+Rn = 1; % measurement noise cov
+
 
 
 % x: state model dx = Ax+Bu+wd
@@ -16,12 +16,12 @@ Nn = [1.5; 1.5];
 
 % errornous system dynamics
 A = [1 0; 0 1];
-B = [1 0; 0 1];
+B = [1 0; 0 1]*dt;
 
-C = [1.2 0; 0.9 0];
-D = [1 0; 0 1];
+C = [1.2 0.9];
+D = [1 1];
 
-bounds = [-3 -3; 3 3];
+
 weights = [0, 0, 0, 1, 1, 0];
 endEffector = 'tool';
 qinit = homeConfiguration(robot);
