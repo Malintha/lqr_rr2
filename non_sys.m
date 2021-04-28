@@ -10,13 +10,19 @@ function dx = non_sys(x,x_bar,k)
    theta2 = x(4);
    L1 = 0.5;
    L2 = 0.5;
-   A = [1 0 (-L1*sin(theta1)-L2*sin(theta1+theta2)) (-L2*sin(theta1+theta2)); ... 
-                     0 1 (L1*cos(theta1)+L2*cos(theta1+theta2)) (L2*cos(theta1+theta2)); ...
-                     0 0 1 0; ... 
-                     0 0 0 1];
-   B = [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta2); ...
-       L1*cos(theta1)+L2*cos(theta1+theta2) L2*cos(theta1+theta2);
-       1 0;
-       0 1];
-   dx = A*x + B*u;
+%    A = [1 0 0 0; ... 
+%        0 1 0 0; ...
+%        0 0 1 0; ... 
+%        0 0 0 1];
+%    
+%    B = [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta2); ...
+%        L1*cos(theta1)+L2*cos(theta1+theta2) L2*cos(theta1+theta2);
+%        1 0;
+%        0 1];
+%    dx = A*x + B*u;
+   dx(1,1) = (-L1*sin(theta1)-L2*sin(theta1+theta2))*u(1) + (-L2*sin(theta1+theta2))*u(2);
+   dx(2,1) = (L1*cos(theta1)+L2*cos(theta1+theta2))*u(1) + ( L2*cos(theta1+theta2))*u(2);
+   dx(3,1) = u(1);
+   dx(4,1) = u(2);
+   
 end

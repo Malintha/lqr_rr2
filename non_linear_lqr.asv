@@ -11,12 +11,12 @@ robot = get2RRobot(L1, L2);
 % start and goal positions for the end effector
 qinit = [theta_min ; theta_min];
 
-start = [L1*cos(theta_min) + L2*cos(theta_min) ...
-        L1*sin(theta_min) + L2*sin(theta_min)];
-target = [-0.5 0.8];
+start = [L1*cos(theta_min) + L2*cos(2*theta_min) ...
+        L1*sin(theta_min) + L2*sin(2*theta_min)];
+target = [-0.5 0.6];
 
 % times for cartesian trajectory generation
-dt = 0.1;
+dt = 0.2;
 Tf = 4;
 % calculate the cartesian trajectory
 st_tr = trvec2tform([start 0]);
@@ -28,23 +28,18 @@ A = @(theta1,theta2) [1 0 (-L1*sin(theta1)-L2*sin(theta1+theta2)) (-L2*sin(theta
                      0 1 (L1*cos(theta1)+L2*cos(theta1+theta2)) (L2*cos(theta1+theta2)); ...
                      0 0 1 0; ... 
                      0 0 0 1];
+% A = eye(2);
 
 B = @(theta1,theta2) [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta2); ...
-                    L1*cos(theta1)+L2*cos(theta1+theta2) L2*cos(theta1+theta2);
-                    0 1; 1 0];
-% C = [1 0 0 0;
-%      0 1 0 0;];
-% D = @(theta1,theta2) [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta2); ...
-%                     L1*cos(theta1)+L2*cos(theta1+theta2) L2*cos(theta1+theta2)];
+                    L1*cos(theta1)+L2*cos(theta1+theta2) L2*cos(theta1+theta2); ...
+                    1 0; 0 1];
                 
 % penalization for state (Q) and control input (R)
-Q = [1 0 0 0;
-     0 1 0 0;
-     0 0 1e-10 0;
-     0 0 0 1e-10]; 
- 
+% Q = [1 0 ;
+%      0 1 ]; 
+Q = eye(4);
 R = [1 0; 0 1];
-N = zeros(4,2);
+% N = zeros(4,2);
 
 % initial conditions for the system
 q = qinit;
@@ -57,7 +52,7 @@ es = [];
 qs = [];
 ks = [];
 
-% weights = [0, 0, 0, 1, 1, 0];
+weights = [0, 0, 0, 1, 1, 0];
 % ik = inverseKinematics('RigidBodyTree', robot);
 % initialize generalilzed inverse kinematics
 gik = generalizedInverseKinematics('RigidBodyTree',robot, ... 
@@ -65,7 +60,6 @@ gik = generalizedInverseKinematics('RigidBodyTree',robot, ...
 jointConst = constraintJointBounds(robot);
 jointConst.Bounds = [theta_min pi-theta_min; theta_min pi-theta_min];
 posConst = constraintPositionTarget('tool');
-
 
 % step time for integration of the system
 ddt = 0.01;
@@ -75,24 +69,24 @@ for i=1:length(traj)
     else
         [~, x_bar] = TransToRp(traj{end});
     end
+    x_bar
 %     get the theta_bar that needs the robot to be stabilized around
-%     q_bar = ik('tool', trvec2tform([x(1:2)' 0]), weights, q);
-    posConst.TargetPosition = [x(1:2)' 0];
-    q_bar = gik(q, posConst, jointConst);
-    
+%     q_bar = ik('tool', trvec2tform([x(1:2)' 0]), weights, x(3:4))
+    posConst.TargetPosition = [x_bar];
+    q_bar = gik(x(3:4), posConst, jointConst);
     x_bar = [x_bar(1:2); q_bar];
     
-    At = A(q(1), q(2));
-    Bt = B(q(1), q(2));
+    At = A(q_bar(1), q_bar(2));
+    Bt = B(q_bar(1), q_bar(2));
     
 %     Dt = D(q(1),q(2));
 %     sys = ss(At, Bt, C, Dt);
     k = lqr(At, Bt, Q, R);
-    
+%     xbar = [x_bar(1:2); 0.1; 0.1];
 % solve the system with kinematics
 % use state as [x y theta1 theta2]
-    tspan = (0:0.01:dt);
-    [t, xt] = ode45(@(t,x)non_sys(x, x_bar(1:2), k), tspan, x);
+    tspan = [0 dt];
+    [~, xt] = ode45(@(t,xt)non_sys(xt, x_bar, k), tspan, x);
     x = xt(end,:)';
     
     % plotting data

@@ -11,13 +11,13 @@ robot = get2RRobot(L1, L2);
 % start and goal positions for the end effector
 qinit = [theta_min ; theta_min];
 
-start = [L1*cos(theta_min) + L2*cos(theta_min) ...
-        L1*sin(theta_min) + L2*sin(theta_min)];
-target = [-0.5 0.8];
+start = [L1*cos(theta_min) + L2*cos(2*theta_min) ...
+        L1*sin(theta_min) + L2*sin(2*theta_min)];
+target = [0.5 0.5];
 
 % times for cartesian trajectory generation
 dt = 0.1;
-Tf = 4;
+Tf = 3;
 % calculate the cartesian trajectory
 st_tr = trvec2tform([start 0]);
 target_tr = trvec2tform([target 0]);
@@ -28,23 +28,25 @@ A = @(theta1,theta2) [1 0 (-L1*sin(theta1)-L2*sin(theta1+theta2)) (-L2*sin(theta
                      0 1 (L1*cos(theta1)+L2*cos(theta1+theta2)) (L2*cos(theta1+theta2)); ...
                      0 0 1 0; ... 
                      0 0 0 1];
+% A = eye(2);
 
 B = @(theta1,theta2) [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta2); ...
-                    L1*cos(theta1)+L2*cos(theta1+theta2) L2*cos(theta1+theta2);
-                    0 1; 1 0];
-% C = [1 0 0 0;
-%      0 1 0 0;];
-% D = @(theta1,theta2) [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta2); ...
-%                     L1*cos(theta1)+L2*cos(theta1+theta2) L2*cos(theta1+theta2)];
+                    L1*cos(theta1)+L2*cos(theta1+theta2) L2*cos(theta1+theta2); ...
+                    1 0; 
+                    0 1];
                 
 % penalization for state (Q) and control input (R)
-Q = [1 0 0 0;
+% Q = [1 0 ;
+%      0 1 ]; 
+% Q = eye(4);
+Q = [1 0 0 0; 
      0 1 0 0;
-     0 0 1 0;
-     0 0 0 1]; 
+     0 0 10 0
+     0 0 0 10];
  
-R = [1 0; 0 1];
-N = zeros(4,2);
+R = [1 0;
+    0 1];
+% N = zeros(4,2);
 
 % initial conditions for the system
 q = qinit;
@@ -57,7 +59,7 @@ es = [];
 qs = [];
 ks = [];
 
-% weights = [0, 0, 0, 1, 1, 0];
+weights = [0, 0, 0, 1, 1, 0];
 % ik = inverseKinematics('RigidBodyTree', robot);
 % initialize generalilzed inverse kinematics
 gik = generalizedInverseKinematics('RigidBodyTree',robot, ... 
@@ -65,7 +67,6 @@ gik = generalizedInverseKinematics('RigidBodyTree',robot, ...
 jointConst = constraintJointBounds(robot);
 jointConst.Bounds = [theta_min pi-theta_min; theta_min pi-theta_min];
 posConst = constraintPositionTarget('tool');
-
 
 % step time for integration of the system
 ddt = 0.01;
@@ -75,12 +76,14 @@ for i=1:length(traj)
     else
         [~, x_bar] = TransToRp(traj{end});
     end
+
 %     get the theta_bar that needs the robot to be stabilized around
-%     q_bar = ik('tool', trvec2tform([x(1:2)' 0]), weights, q);
-    posConst.TargetPosition = [x(1:2)' 0];
-    q_bar = gik(q, posConst, jointConst);
-    
-    x_bar = [x_bar(1:2); q_bar];
+%     q_bar = ik('tool', trvec2tform([x(1:2)' 0]), weights, x(3:4)) + 1e-3
+
+    posConst.TargetPosition = x_bar;
+    q_bar = gik(x(3:4), posConst, jointConst);
+
+    x_bar = [x_bar(1:2); q_bar]
     
     At = A(q_bar(1), q_bar(2));
     Bt = B(q_bar(1), q_bar(2));
@@ -88,12 +91,12 @@ for i=1:length(traj)
 %     Dt = D(q(1),q(2));
 %     sys = ss(At, Bt, C, Dt);
     k = lqr(At, Bt, Q, R);
-    
+%     xbar = [x_bar(1:2); 0.1; 0.1];
 % solve the system with kinematics
 % use state as [x y theta1 theta2]
-    tspan = (0:0.01:dt);
-    [t, xt] = ode45(@(t,x)non_sys(x, x_bar, k), tspan, x);
-    x = xt(end,:)';
+    tspan = [0 dt];
+    [~, xt] = ode45(@(t,xt)non_sys(xt, x_bar, k), tspan, x);
+    x = xt(end,:)'
     
     % plotting data
     es = [es; xt(:,1:2)-x_bar(1:2)'];
@@ -105,41 +108,41 @@ for i=1:length(traj)
 end
 
 % animate the robot
-% qs = xs(:,3:4);
-% figure
-% f1 = show(robot,qs(1,:)');
-% view(2)
-% ax = gca;
-% ax.Projection = 'orthographic';
-% hold on
-% framesPerSecond = 1/ddt;
-% r = rateControl(framesPerSecond);
+qs = xs(:,3:4);
+figure
+f1 = show(robot,qs(1,:)');
+view(2);
+ax = gca;
+ax.Projection = 'orthographic';
+hold on
+framesPerSecond = 1/ddt;
+r = rateControl(framesPerSecond);
 
-% 
-% for i = 1:length(qs)
-%     f1 = show(robot,qs(i,:)','PreservePlot',false);
-%     h=findall(f1); %finding all objects in figure
-%     hlines=h.findobj('Type','Line'); %finding line object 
-%     %editing line object properties
-%     n=size(hlines);
-%     for j=1:2
-%         hlines(j).LineWidth = 3; %chanding line width
-%         hlines(j).Color=[1 0 0.5];%changing line color
-%         hlines(j).Marker='o';%changing marker type
-%         hlines(j).MarkerSize=5; %changing marker size
+
+for i = 1:length(qs)
+    f1 = show(robot,qs(i,:)','PreservePlot',false);
+    h=findall(f1); %finding all objects in figure
+    hlines=h.findobj('Type','Line'); %finding line object 
+    %editing line object properties
+    n=size(hlines);
+    for j=1:2
+        hlines(j).LineWidth = 3; %chanding line width
+        hlines(j).Color=[1 0 0.5];%changing line color
+        hlines(j).Marker='o';%changing marker type
+        hlines(j).MarkerSize=5; %changing marker size
+    end
+    drawnow
+%     filename = 'added_noise1.gif';
+%     frame = getframe(1);
+%     im = frame2im(frame);
+%     [imind,cm] = rgb2ind(im,256);
+%     if i == 1 
+%       imwrite(imind,cm,filename,'gif', 'Loopcount',inf);
+%     else
+%       imwrite(imind,cm,filename,'gif','Writemode','append', 'DelayTime', dt);
 %     end
-%     drawnow
-% %     filename = 'added_noise1.gif';
-% %     frame = getframe(1);
-% %     im = frame2im(frame);
-% %     [imind,cm] = rgb2ind(im,256);
-% %     if i == 1 
-% %       imwrite(imind,cm,filename,'gif', 'Loopcount',inf);
-% %     else
-% %       imwrite(imind,cm,filename,'gif','Writemode','append', 'DelayTime', dt);
-% %     end
-%     waitfor(r);
-% end
+    waitfor(r);
+end
 % hold off
 
 % visualize the plots
