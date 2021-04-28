@@ -13,7 +13,7 @@ qinit = [theta_min ; theta_min];
 
 start = [L1*cos(theta_min) + L2*cos(2*theta_min) ...
         L1*sin(theta_min) + L2*sin(2*theta_min)];
-target = [-0.5 0.8];
+target = [-0.5 0.6];
 
 % times for cartesian trajectory generation
 dt = 0.1;
@@ -35,10 +35,10 @@ B = @(theta1,theta2) [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta
                     0 1];
                 
 % cost matrices
-Q = [10 0 0 0; 
-     0 10 0 0;
-     0 0 1000 0
-     0 0 0 1000];
+Q = [100 0 0 0; 
+     0 100 0 0;
+     0 0 10 0
+     0 0 0 10];
  
 R = [0.1 0;
     0 0.1];

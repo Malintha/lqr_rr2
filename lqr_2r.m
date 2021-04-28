@@ -27,7 +27,7 @@ B = [1 0; 0 1]*dt;
 R = [10 0; 0 10];
 Q = [1 0; 0 1];
 
-weights = [0, 0, 0, 0.9, 0.9, 0];
+weights = [0, 0, 0, 1, 1, 0];
 endEffector = 'tool';
 qinit = homeConfiguration(robot);
 y_tr = getTransform(robot, qinit, endEffector, 'base');
@@ -76,7 +76,7 @@ ax.Projection = 'orthographic';
 hold on
 framesPerSecond = 1/dt;
 r = rateControl(framesPerSecond);
-
+tic
 for i = 1:length(qs)
     f1 = show(robot,qs(:,i),'PreservePlot',false);
     h=findall(f1); %finding all objects in figure
@@ -90,17 +90,18 @@ for i = 1:length(qs)
         hlines(j).MarkerSize=5; %changing marker size
     end
     drawnow
-    filename = 'added_noise1.gif';
-    frame = getframe(1);
-    im = frame2im(frame);
-    [imind,cm] = rgb2ind(im,256);
-    if i == 1 
-      imwrite(imind,cm,filename,'gif', 'Loopcount',inf);
-    else
-      imwrite(imind,cm,filename,'gif','Writemode','append', 'DelayTime', dt);
-    end
+%     filename = 'added_noise1.gif';
+%     frame = getframe(1);
+%     im = frame2im(frame);
+%     [imind,cm] = rgb2ind(im,256);
+%     if i == 1 
+%       imwrite(imind,cm,filename,'gif', 'Loopcount',inf);
+%     else
+%       imwrite(imind,cm,filename,'gif','Writemode','append', 'DelayTime', dt);
+%     end
     waitfor(r);
 end
+toc
 hold off
 
 %% draw the error and state plots
