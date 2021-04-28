@@ -13,7 +13,7 @@ qinit = [theta_min ; theta_min];
 
 start = [L1*cos(theta_min) + L2*cos(2*theta_min) ...
         L1*sin(theta_min) + L2*sin(2*theta_min)];
-target = [0.5 0.6];
+target = [-0.5 0.8];
 
 % times for cartesian trajectory generation
 dt = 0.1;
@@ -34,23 +34,14 @@ B = @(theta1,theta2) [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta
                     1 0; 
                     0 1];
                 
-% A = eye(2);
-% B = @(theta1,theta2) [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta2); ...
-%                     L1*cos(theta1)+L2*cos(theta1+theta2) L2*cos(theta1+theta2)];
-                
-% penalization for state (Q) and control input (R)
-% Q = [1 0 ;
-%      0 1 ]; 
-% % Q = eye(4);
-
-Q = [1 0 0 0; 
-     0 1 0 0;
+% cost matrices
+Q = [10 0 0 0; 
+     0 10 0 0;
      0 0 1000 0
      0 0 0 1000];
  
-R = [1 0;
-    0 1];
-% N = zeros(4,2);
+R = [0.1 0;
+    0 0.1];
 
 % initial conditions for the system
 q = qinit;
@@ -58,19 +49,17 @@ x0 = [start'; q(1); q(2)];
 
 % matrices for plotting
 xs = [];
-us = [];
 es = [];
-qs = [];
-ks = [];
 
 weights = [0, 0, 0, 1, 1, 0];
-% ik = inverseKinematics('RigidBodyTree', robot);
-% initialize generalilzed inverse kinematics
-gik = generalizedInverseKinematics('RigidBodyTree',robot, ... 
-                            'ConstraintInputs',{'position','joint'});
-jointConst = constraintJointBounds(robot);
-jointConst.Bounds = [theta_min pi-theta_min; theta_min pi-theta_min];
-posConst = constraintPositionTarget('tool');
+ik = inverseKinematics('RigidBodyTree', robot);
+
+% initialize generalilzed inverse kinematics (too slow thus retreated to the old one)
+% gik = generalizedInverseKinematics('RigidBodyTree',robot, ... 
+%                             'ConstraintInputs',{'position','joint'});
+% jointConst = constraintJointBounds(robot);
+% jointConst.Bounds = [theta_min pi-theta_min; theta_min pi-theta_min];
+% posConst = constraintPositionTarget('tool');
 
 ddt = 0.01;
 for i=2:length(traj)
@@ -81,19 +70,19 @@ for i=2:length(traj)
     end
 
 %     get the theta_bar that needs the robot to be stabilized around
-%     q_bar = ik('tool', trvec2tform([x(1:2)' 0]), weights, x(3:4)) + 1e-3
-
-    posConst.TargetPosition = x_bar;
+    q_bar = ik('tool', trvec2tform([x0(1:2)' 0]), weights, x0(3:4));
+%     posConst.TargetPosition = x_bar;
 %     q_bar = gik(x0(3:4), posConst, jointConst);
 
-    x_bar = x_bar(1:2);
+    x_bar = [x_bar(1:2); q_bar];
     
 %     linearized system around the fixed point 
-    At = A(x0(3), x0(4));
-    Bt = B(x0(3), x0(4));
+    At = A(q_bar(1), q_bar(2));
+    Bt = B(q_bar(1), q_bar(2));
+    
+%     get the LQR gain matrix
     k = lqr(At, Bt, Q, R);
     
-%     xbar = [x_bar(1:2); 0.1; 0.1];
 % solve the system with kinematics
 % use state as [x y theta1 theta2]
     tspan = (0:ddt:dt);
@@ -103,54 +92,49 @@ for i=2:length(traj)
     % plotting data
     es = [es; xt(:,1:2)-x_bar(1:2)'];
     xs = [xs; xt];
-%     us = [us ut];
-%     qs = [qs q];
-%     ks = [ks; k];
-
 end
 
 % animate the robot
-qs = xs(:,3:4);
-figure
-f1 = show(robot,qs(1,:)');
-view(2);
-ax = gca;
-ax.Projection = 'orthographic';
-hold on
-framesPerSecond = 1/ddt;
-r = rateControl(framesPerSecond);
-
-
-for i = 1:length(qs)
-    f1 = show(robot,qs(i,:)','PreservePlot',false);
-    h=findall(f1); %finding all objects in figure
-    hlines=h.findobj('Type','Line'); %finding line object 
-    %editing line object properties
-    n=size(hlines);
-    for j=1:2
-        hlines(j).LineWidth = 3; %chanding line width
-        hlines(j).Color=[1 0 0.5];%changing line color
-        hlines(j).Marker='o';%changing marker type
-        hlines(j).MarkerSize=5; %changing marker size
-    end
-    drawnow
-%     filename = 'added_noise1.gif';
-%     frame = getframe(1);
-%     im = frame2im(frame);
-%     [imind,cm] = rgb2ind(im,256);
-%     if i == 1 
-%       imwrite(imind,cm,filename,'gif', 'Loopcount',inf);
-%     else
-%       imwrite(imind,cm,filename,'gif','Writemode','append', 'DelayTime', dt);
+% qs = xs(:,3:4);
+% figure
+% f1 = show(robot,qs(1,:)');
+% view(2);
+% ax = gca;
+% ax.Projection = 'orthographic';
+% hold on
+% framesPerSecond = 1/ddt;
+% r = rateControl(1000);
+% 
+% for i = 1:length(qs)
+%     f1 = show(robot,qs(i,:)','PreservePlot',false);
+%     h=findall(f1); %finding all objects in figure
+%     hlines=h.findobj('Type','Line'); %finding line object 
+%     %editing line object properties
+%     n=size(hlines);
+%     for j=1:2
+%         hlines(j).LineWidth = 3; %chanding line width
+%         hlines(j).Color=[1 0 0.5];%changing line color
+%         hlines(j).Marker='o';%changing marker type
+%         hlines(j).MarkerSize=5; %changing marker size
 %     end
+%     drawnow
+% %     filename = 'added_noise1.gif';
+% %     frame = getframe(1);
+% %     im = frame2im(frame);
+% %     [imind,cm] = rgb2ind(im,256);
+% %     if i == 1 
+% %       imwrite(imind,cm,filename,'gif', 'Loopcount',inf);
+% %     else
+% %       imwrite(imind,cm,filename,'gif','Writemode','append', 'DelayTime', dt);
+% %     end
 %     waitfor(r);
-end
+% end
 % hold off
 
 % visualize the plots
 % fprintf('Total control: %d', norm(us));
-t = (ddt:ddt:length(es)*ddt);
 
+t = (ddt:ddt:length(es)*ddt);
 figure
 plot(t,es(:,1),'-r',t,es(:,2),'-g','LineWidth',1);
 xlabel('Time (s)');

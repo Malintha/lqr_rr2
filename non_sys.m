@@ -1,9 +1,9 @@
 function dx = non_sys(x,x_bar,k)
 
 %    centralization and calculate control
-   y = x(1:2);
+   y = x;
    x_hat = y-x_bar;
-   u = -k(1:2,1:2)*x_hat(1:2);
+   u = -k*x_hat;
    
 %    progress system
    theta1 = x(3);
