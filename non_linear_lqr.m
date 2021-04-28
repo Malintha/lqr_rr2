@@ -51,15 +51,15 @@ x0 = [start'; q(1); q(2)];
 xs = [];
 es = [];
 
-weights = [0, 0, 0, 1, 1, 0];
-ik = inverseKinematics('RigidBodyTree', robot);
-
-% initialize generalilzed inverse kinematics (too slow thus retreated to the old one)
+% initialize generalilzed inverse kinematics (too slow thus retreated to the normal one)
 % gik = generalizedInverseKinematics('RigidBodyTree',robot, ... 
 %                             'ConstraintInputs',{'position','joint'});
 % jointConst = constraintJointBounds(robot);
 % jointConst.Bounds = [theta_min pi-theta_min; theta_min pi-theta_min];
 % posConst = constraintPositionTarget('tool');
+
+weights = [0, 0, 0, 1, 1, 0];
+ik = inverseKinematics('RigidBodyTree', robot);
 
 ddt = 0.01;
 for i=2:length(traj)
@@ -95,41 +95,41 @@ for i=2:length(traj)
 end
 
 % animate the robot
-% qs = xs(:,3:4);
-% figure
-% f1 = show(robot,qs(1,:)');
-% view(2);
-% ax = gca;
-% ax.Projection = 'orthographic';
-% hold on
-% framesPerSecond = 1/ddt;
-% r = rateControl(1000);
-% 
-% for i = 1:length(qs)
-%     f1 = show(robot,qs(i,:)','PreservePlot',false);
-%     h=findall(f1); %finding all objects in figure
-%     hlines=h.findobj('Type','Line'); %finding line object 
-%     %editing line object properties
-%     n=size(hlines);
-%     for j=1:2
-%         hlines(j).LineWidth = 3; %chanding line width
-%         hlines(j).Color=[1 0 0.5];%changing line color
-%         hlines(j).Marker='o';%changing marker type
-%         hlines(j).MarkerSize=5; %changing marker size
+qs = xs(:,3:4);
+figure('Renderer', 'painters', 'Position', [1500 100 600 600]);
+f1 = show(robot,qs(1,:)');
+view(2);
+ax = gca;
+ax.Projection = 'orthographic';
+hold on
+framesPerSecond = length(xs)/Tf;
+r = rateControl(framesPerSecond);
+
+for i = 1:length(qs)
+    f1 = show(robot,qs(i,:)','PreservePlot',false);
+    h=findall(f1); %finding all objects in figure
+    hlines=h.findobj('Type','Line'); %finding line object 
+    %editing line object properties
+    n=size(hlines);
+    for j=1:2
+        hlines(j).LineWidth = 3; %chanding line width
+        hlines(j).Color=[1 0 0.5];%changing line color
+        hlines(j).Marker='o';%changing marker type
+        hlines(j).MarkerSize=5; %changing marker size
+    end
+    drawnow
+%     filename = 'added_noise1.gif';
+%     frame = getframe(1);
+%     im = frame2im(frame);
+%     [imind,cm] = rgb2ind(im,256);
+%     if i == 1 
+%       imwrite(imind,cm,filename,'gif', 'Loopcount',inf);
+%     else
+%       imwrite(imind,cm,filename,'gif','Writemode','append', 'DelayTime', dt);
 %     end
-%     drawnow
-% %     filename = 'added_noise1.gif';
-% %     frame = getframe(1);
-% %     im = frame2im(frame);
-% %     [imind,cm] = rgb2ind(im,256);
-% %     if i == 1 
-% %       imwrite(imind,cm,filename,'gif', 'Loopcount',inf);
-% %     else
-% %       imwrite(imind,cm,filename,'gif','Writemode','append', 'DelayTime', dt);
-% %     end
-%     waitfor(r);
-% end
-% hold off
+    waitfor(r);
+end
+hold off
 
 % visualize the plots
 % fprintf('Total control: %d', norm(us));

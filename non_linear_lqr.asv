@@ -13,7 +13,7 @@ qinit = [theta_min ; theta_min];
 
 start = [L1*cos(theta_min) + L2*cos(2*theta_min) ...
         L1*sin(theta_min) + L2*sin(2*theta_min)];
-target = [0.5 0.6];
+target = [-0.5 0.6];
 
 % times for cartesian trajectory generation
 dt = 0.1;
@@ -34,15 +34,14 @@ B = @(theta1,theta2) [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta
                     1 0; 
                     0 1];
                 
-
-Q = [10 0 0 0; 
-     0 10 0 0;
-     0 0 1000 0
-     0 0 0 1000];
+% cost matrices
+Q = [100 0 0 0; 
+     0 100 0 0;
+     0 0 10 0
+     0 0 0 10];
  
 R = [1 0;
     0 1];
-% N = zeros(4,2);
 
 % initial conditions for the system
 q = qinit;
@@ -52,14 +51,15 @@ x0 = [start'; q(1); q(2)];
 xs = [];
 es = [];
 
-weights = [0, 0, 0, 1, 1, 0];
-ik = inverseKinematics('RigidBodyTree', robot);
-% initialize generalilzed inverse kinematics
+% initialize generalilzed inverse kinematics (too slow thus retreated to the normal one)
 % gik = generalizedInverseKinematics('RigidBodyTree',robot, ... 
 %                             'ConstraintInputs',{'position','joint'});
 % jointConst = constraintJointBounds(robot);
 % jointConst.Bounds = [theta_min pi-theta_min; theta_min pi-theta_min];
 % posConst = constraintPositionTarget('tool');
+
+weights = [0, 0, 0, 1, 1, 0];
+ik = inverseKinematics('RigidBodyTree', robot);
 
 ddt = 0.01;
 for i=2:length(traj)
@@ -71,17 +71,18 @@ for i=2:length(traj)
 
 %     get the theta_bar that needs the robot to be stabilized around
     q_bar = ik('tool', trvec2tform([x0(1:2)' 0]), weights, x0(3:4));
-
 %     posConst.TargetPosition = x_bar;
 %     q_bar = gik(x0(3:4), posConst, jointConst);
+
     x_bar = [x_bar(1:2); q_bar];
     
 %     linearized system around the fixed point 
     At = A(q_bar(1), q_bar(2));
     Bt = B(q_bar(1), q_bar(2));
+    
+%     get the LQR gain matrix
     k = lqr(At, Bt, Q, R);
     
-%     xbar = [x_bar(1:2); 0.1; 0.1];
 % solve the system with kinematics
 % use state as [x y theta1 theta2]
     tspan = (0:ddt:dt);
@@ -91,10 +92,6 @@ for i=2:length(traj)
     % plotting data
     es = [es; xt(:,1:2)-x_bar(1:2)'];
     xs = [xs; xt];
-%     us = [us ut];
-%     qs = [qs q];
-%     ks = [ks; k];
-
 end
 
 % animate the robot
@@ -130,14 +127,14 @@ for i = 1:length(qs)
 %     else
 %       imwrite(imind,cm,filename,'gif','Writemode','append', 'DelayTime', dt);
 %     end
-%     waitfor(r);
+    waitfor(r);
 end
 hold off
 
 % visualize the plots
 % fprintf('Total control: %d', norm(us));
-t = (ddt:ddt:length(es)*ddt);
 
+t = (ddt:ddt:length(es)*ddt);
 figure
 plot(t,es(:,1),'-r',t,es(:,2),'-g','LineWidth',1);
 xlabel('Time (s)');

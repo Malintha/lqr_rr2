@@ -97,26 +97,30 @@ for i = 1:length(qs)
     end
 
 % %     save to gif
-    filename = 'non_linear_noIK.gif';
-    frame = getframe(1);
-    im = frame2im(frame);
-    [imind,cm] = rgb2ind(im,256);
-    if i == 1 
-      imwrite(imind,cm,filename,'gif', 'Loopcount',inf);
-    else
-      imwrite(imind,cm,filename,'gif','Writemode','append', 'DelayTime', dt);
-    end
+%     filename = 'non_linear_noIK.gif';
+%     frame = getframe(1);
+%     im = frame2im(frame);
+%     [imind,cm] = rgb2ind(im,256);
+%     if i == 1 
+%       imwrite(imind,cm,filename,'gif', 'Loopcount',inf);
+%     else
+%       imwrite(imind,cm,filename,'gif','Writemode','append', 'DelayTime', dt);
+%     end
+
     waitfor(r);
 end
+
 hold off
 toc
 reset(r)
+
 % visualize the plots
 % fprintf('Total control: %d', norm(us));
 ddt = Tf/length(es);
 t = (ddt:ddt:length(es)*ddt);
 figure
 plot(t,es(:,1),'-r',t,es(:,2),'-g','LineWidth',1);
+legend('X','Y');
 xlabel('Time (s)');
 ylabel('Absolute error (m)');
 
