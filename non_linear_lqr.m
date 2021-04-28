@@ -24,12 +24,27 @@ target_tr = trvec2tform([target 0]);
 traj = CartesianTrajectory(st_tr, target_tr, 5, 5/dt, 5);
 
 % system matrices for LQR
-A = eye(2);
+A = @(theta1,theta2) [1 0 (-L1*sin(theta1)-L2*sin(theta1+theta2)) (-L2*sin(theta1+theta2)); ... 
+                     0 1 (L1*cos(theta1)+L2*cos(theta1+theta2)) (L2*cos(theta1+theta2)); ...
+                     0 0 1 0; ... 
+                     0 0 0 1];
+
 B = @(theta1,theta2) [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta2); ...
-                    L1*cos(theta1)+L2*cos(theta1+theta2) L2*cos(theta1+theta2)];
+                    L1*cos(theta1)+L2*cos(theta1+theta2) L2*cos(theta1+theta2);
+                    0 1; 1 0];
+% C = [1 0 0 0;
+%      0 1 0 0;];
+% D = @(theta1,theta2) [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta2); ...
+%                     L1*cos(theta1)+L2*cos(theta1+theta2) L2*cos(theta1+theta2)];
+                
 % penalization for state (Q) and control input (R)
-Q = eye(2); 
+Q = [1 0 0 0;
+     0 1 0 0;
+     0 0 1 0;
+     0 0 0 1]; 
+ 
 R = [1 0; 0 1];
+N = zeros(4,2);
 
 % initial conditions for the system
 q = qinit;
@@ -42,6 +57,16 @@ es = [];
 qs = [];
 ks = [];
 
+% weights = [0, 0, 0, 1, 1, 0];
+% ik = inverseKinematics('RigidBodyTree', robot);
+% initialize generalilzed inverse kinematics
+gik = generalizedInverseKinematics('RigidBodyTree',robot, ... 
+                            'ConstraintInputs',{'position','joint'});
+jointConst = constraintJointBounds(robot);
+jointConst.Bounds = [theta_min pi-theta_min; theta_min pi-theta_min];
+posConst = constraintPositionTarget('tool');
+
+
 % step time for integration of the system
 ddt = 0.01;
 for i=1:length(traj)
@@ -50,13 +75,24 @@ for i=1:length(traj)
     else
         [~, x_bar] = TransToRp(traj{end});
     end
-    Bt = B(q(1), q(2));
-    k = lqr(A, Bt, Q, R);
+%     get the theta_bar that needs the robot to be stabilized around
+%     q_bar = ik('tool', trvec2tform([x(1:2)' 0]), weights, q);
+    posConst.TargetPosition = [x(1:2)' 0];
+    q_bar = gik(q, posConst, jointConst);
+    
+    x_bar = [x_bar(1:2); q_bar];
+    
+    At = A(q_bar(1), q_bar(2));
+    Bt = B(q_bar(1), q_bar(2));
+    
+%     Dt = D(q(1),q(2));
+%     sys = ss(At, Bt, C, Dt);
+    k = lqr(At, Bt, Q, R);
     
 % solve the system with kinematics
 % use state as [x y theta1 theta2]
     tspan = (0:0.01:dt);
-    [~, xt] = ode45(@(t,x)non_sys(x, x_bar(1:2), k), tspan, x);
+    [t, xt] = ode45(@(t,x)non_sys(x, x_bar, k), tspan, x);
     x = xt(end,:)';
     
     % plotting data
