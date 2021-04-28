@@ -13,7 +13,7 @@ qinit = [theta_min ; theta_min];
 
 start = [L1*cos(theta_min) + L2*cos(2*theta_min) ...
         L1*sin(theta_min) + L2*sin(2*theta_min)];
-target = [0.5 0.5];
+target = [0.5 0.6];
 
 % times for cartesian trajectory generation
 dt = 0.1;
@@ -28,21 +28,25 @@ A = @(theta1,theta2) [1 0 (-L1*sin(theta1)-L2*sin(theta1+theta2)) (-L2*sin(theta
                      0 1 (L1*cos(theta1)+L2*cos(theta1+theta2)) (L2*cos(theta1+theta2)); ...
                      0 0 1 0; ... 
                      0 0 0 1];
-% A = eye(2);
-
+                
 B = @(theta1,theta2) [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta2); ...
-                    L1*cos(theta1)+L2*cos(theta1+theta2) L2*cos(theta1+theta2); ...
+                    L1*cos(theta1)+L2*cos(theta1+theta2) L2*cos(theta1+theta2);
                     1 0; 
                     0 1];
+                
+% A = eye(2);
+% B = @(theta1,theta2) [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta2); ...
+%                     L1*cos(theta1)+L2*cos(theta1+theta2) L2*cos(theta1+theta2)];
                 
 % penalization for state (Q) and control input (R)
 % Q = [1 0 ;
 %      0 1 ]; 
-% Q = eye(4);
+% % Q = eye(4);
+
 Q = [1 0 0 0; 
      0 1 0 0;
-     0 0 10 0
-     0 0 0 10];
+     0 0 1000 0
+     0 0 0 1000];
  
 R = [1 0;
     0 1];
@@ -50,7 +54,7 @@ R = [1 0;
 
 % initial conditions for the system
 q = qinit;
-x = [start'; q(1); q(2)];
+x0 = [start'; q(1); q(2)];
 
 % matrices for plotting
 xs = [];
@@ -68,9 +72,8 @@ jointConst = constraintJointBounds(robot);
 jointConst.Bounds = [theta_min pi-theta_min; theta_min pi-theta_min];
 posConst = constraintPositionTarget('tool');
 
-% step time for integration of the system
 ddt = 0.01;
-for i=1:length(traj)
+for i=2:length(traj)
     if i<length(traj)
         [~, x_bar] = TransToRp(traj{i});
     else
@@ -81,22 +84,21 @@ for i=1:length(traj)
 %     q_bar = ik('tool', trvec2tform([x(1:2)' 0]), weights, x(3:4)) + 1e-3
 
     posConst.TargetPosition = x_bar;
-    q_bar = gik(x(3:4), posConst, jointConst);
+%     q_bar = gik(x0(3:4), posConst, jointConst);
 
-    x_bar = [x_bar(1:2); q_bar]
+    x_bar = x_bar(1:2);
     
-    At = A(q_bar(1), q_bar(2));
-    Bt = B(q_bar(1), q_bar(2));
-    
-%     Dt = D(q(1),q(2));
-%     sys = ss(At, Bt, C, Dt);
+%     linearized system around the fixed point 
+    At = A(x0(3), x0(4));
+    Bt = B(x0(3), x0(4));
     k = lqr(At, Bt, Q, R);
+    
 %     xbar = [x_bar(1:2); 0.1; 0.1];
 % solve the system with kinematics
 % use state as [x y theta1 theta2]
-    tspan = [0 dt];
-    [~, xt] = ode45(@(t,xt)non_sys(xt, x_bar, k), tspan, x);
-    x = xt(end,:)'
+    tspan = (0:ddt:dt);
+    [~, xt] = ode45(@(t,xt)non_sys(xt, x_bar, k), tspan, x0);
+    x0 = xt(end,:)';
     
     % plotting data
     es = [es; xt(:,1:2)-x_bar(1:2)'];
@@ -141,7 +143,7 @@ for i = 1:length(qs)
 %     else
 %       imwrite(imind,cm,filename,'gif','Writemode','append', 'DelayTime', dt);
 %     end
-    waitfor(r);
+%     waitfor(r);
 end
 % hold off
 
