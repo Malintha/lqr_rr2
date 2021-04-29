@@ -23,7 +23,7 @@ st_tr = trvec2tform([start 0]);
 target_tr = trvec2tform([target 0]);
 traj = CartesianTrajectory(st_tr, target_tr, 5, 5/dt, 5);
 
-% system matrices for LQR
+% system matrices for LQR with some modelling noise
 A = @(theta1,theta2) [1 0 (-L1*sin(theta1)-L2*sin(theta1+theta2)) (-L2*sin(theta1+theta2)); ... 
                      0 1 (L1*cos(theta1)+L2*cos(theta1+theta2)) (L2*cos(theta1+theta2)); ...
                      0 0 1 0; ... 
@@ -37,19 +37,20 @@ B = @(theta1,theta2) [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta
 % cost matrices
 Q = [100 0 0 0; 
      0 100 0 0;
-     0 0 10 0
-     0 0 0 10];
+     0 0 100 0
+     0 0 0 100];
  
-R = [1 0;
-    0 1];
+R = [10 0;
+    0 10];
 
 % initial conditions for the system
-q = qinit;
-x0 = [start'; q(1); q(2)];
+% q = qinit;
+x0 = [start'; qinit(1); qinit(2)];
 
 % matrices for plotting
 xs = [];
 es = [];
+xbars = [];
 
 % initialize generalilzed inverse kinematics (too slow thus retreated to the normal one)
 % gik = generalizedInverseKinematics('RigidBodyTree',robot, ... 
@@ -92,17 +93,26 @@ for i=2:length(traj)
     % plotting data
     es = [es; xt(:,1:2)-x_bar(1:2)'];
     xs = [xs; xt];
+    xbars = [xbars; x_bar'];
 end
 
 % animate the robot
 qs = xs(:,3:4);
-figure
+figure('Renderer', 'painters', 'Position', [1500 100 600 600]);
 f1 = show(robot,qs(1,:)');
 view(2);
 ax = gca;
 ax.Projection = 'orthographic';
+xlim([-1.2 1.2]);
+ylim([-1.2 1.2]);
+title('TVLQR with angular & cartesian fixed points');
 hold on
-framesPerSecond = 1/ddt;
+
+% plot the goal and trajectory
+scatter(target(1),target(2),25,'*b');
+plot(xbar(:,1),xbar(:,2),)
+
+framesPerSecond = length(xs)/Tf;
 r = rateControl(framesPerSecond);
 
 for i = 1:length(qs)
@@ -133,16 +143,31 @@ hold off
 
 % visualize the plots
 % fprintf('Total control: %d', norm(us));
-
-t = (ddt:ddt:length(es)*ddt);
+t_max = length(es)*ddt;
+t = (ddt:ddt:t_max);
+te = (dt:dt:length(xbars)*dt);
 figure
 plot(t,es(:,1),'-r',t,es(:,2),'-g','LineWidth',1);
 xlabel('Time (s)');
-ylabel('Absolute error (m)');
+ylabel('Absolute Error (m)');
+xlim([0 t_max]);
 
 figure
 plot(t,xs(:,1),'-r',t,xs(:,2),'-g','LineWidth',1);
-legend('X','Y');
+hold on
+plot(te,xbars(:,1),'-+k',te,xbars(:,2),'-+b','LineWidth',0.5);
+legend('X','Y','X Set','Y Set');
 xlabel('Time (s)');
 ylabel('Displacement(m)');
+xlim([0 t_max]);
+hold off
 
+figure
+plot(t,xs(:,3),'-r',t,xs(:,4),'-g','LineWidth',1);
+hold on
+plot(te,xbars(:,3),'-+k',te,xbars(:,4),'-+b','LineWidth',0.5);
+legend('Joint_1 Angle','Joint_2 Angle','Joint_1 Set','Joint_2 Set');
+xlabel('Time (s)');
+ylabel('Angle(rad)');
+xlim([0 t_max]);
+hold off

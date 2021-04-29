@@ -30,23 +30,19 @@ B = @(theta1,theta2) [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta
                 
 % cost matrices
 Q = eye(2)*100;
-R = [1 0;
-    0 1];
+R = [10 0;
+    0 10];
 
 % initial conditions for the system
 q = qinit;
 x0 = [start'; q(1); q(2)];
 
 % matrices for plotting
-% using a different plot for saving the animation values because it is slow
-% when the time resolution is too high, especially when the results from the
-% ODE integration is passed.
-
 xs = [];
 es = [];
-xs_anim = [];
-
-for i=1:length(traj)
+xbars = [];
+ddt = 0.01;
+for i=2:length(traj)
     if i<length(traj)
         [~, x_bar] = TransToRp(traj{i});
     else
@@ -54,7 +50,7 @@ for i=1:length(traj)
     end
     x_bar = x_bar(1:2);
     
-%     linearized system around a fixed point (last known state/initial condition)
+%     linearized system around the current state/initial condition
     Bt = B(x0(3), x0(4));
     
 %     get the LQR gain matrix
@@ -62,24 +58,35 @@ for i=1:length(traj)
     
 % solve the system with kinematics
 % use state as [x y theta1 theta2] to progress the system
-    tspan = [0 dt];
+    tspan = (0:ddt:dt);
     [~, xt] = ode45(@(t,xt)non_sys_noIK(xt, x_bar, k), tspan, x0);
     x0 = xt(end,:)';
     
     % plotting data
     es = [es; xt(:,1:2)-x_bar(1:2)'];
     xs = [xs; xt];
-    xs_anim = [xs_anim; x0'];
+    xbars = [xbars; x_bar'];
 end
 
-% animate the robot
-qs = xs_anim(:,3:4);
-figure('Renderer', 'painters', 'Position', [1500 100 600 600])
+%% animate the robot
+% Note: Animating is slower than the actual rate when the time resolution 
+% is too high, especially when the results from the ODE integration is passed.
+qs = xs(:,3:4);
+figure('Renderer', 'painters', 'Position', [1500 100 600 600]);
 f1 = show(robot,qs(1,:)');
 view(2);
 ax = gca;
 ax.Projection = 'orthographic';
+xlim([-1.2 1.2]);
+ylim([-1.2 1.2]);
+title('TVLQR with angular & cartesian fixed points');
 hold on
+
+% plot the goal and trajectory
+scatter(target(1),target(2),40,'*b');
+scatter(start(1),start(2),40,'*g');
+plot(xbars(:,1),xbars(:,2),'-g','LineWidth',1);
+
 framesPerSecond = length(qs)/Tf;
 r = rateControl(framesPerSecond);
 tic
@@ -115,19 +122,5 @@ toc
 reset(r)
 
 % visualize the plots
-% fprintf('Total control: %d', norm(us));
-ddt = Tf/length(es);
-t = (ddt:ddt:length(es)*ddt);
-figure
-plot(t,es(:,1),'-r',t,es(:,2),'-g','LineWidth',1);
-legend('X','Y');
-xlabel('Time (s)');
-ylabel('Absolute error (m)');
-
-figure
-plot(t,xs(:,1),'-r',t,xs(:,2),'-g','LineWidth',1);
-legend('X','Y');
-xlabel('Time (s)');
-ylabel('Displacement(m)');
-
+visualize_plots(ddt, dt, es, xs, xbars);
 

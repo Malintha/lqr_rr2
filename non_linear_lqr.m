@@ -23,7 +23,7 @@ st_tr = trvec2tform([start 0]);
 target_tr = trvec2tform([target 0]);
 traj = CartesianTrajectory(st_tr, target_tr, 5, 5/dt, 5);
 
-% system matrices for LQR
+% system matrices for LQR with some modelling noise
 A = @(theta1,theta2) [1 0 (-L1*sin(theta1)-L2*sin(theta1+theta2)) (-L2*sin(theta1+theta2)); ... 
                      0 1 (L1*cos(theta1)+L2*cos(theta1+theta2)) (L2*cos(theta1+theta2)); ...
                      0 0 1 0; ... 
@@ -37,19 +37,20 @@ B = @(theta1,theta2) [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta
 % cost matrices
 Q = [100 0 0 0; 
      0 100 0 0;
-     0 0 10 0
-     0 0 0 10];
+     0 0 100 0
+     0 0 0 100];
  
-R = [0.1 0;
-    0 0.1];
+R = [1 0;
+    0 1];
 
 % initial conditions for the system
-q = qinit;
-x0 = [start'; q(1); q(2)];
+% q = qinit;
+x0 = [start'; qinit(1); qinit(2)];
 
 % matrices for plotting
 xs = [];
 es = [];
+xbars = [];
 
 % initialize generalilzed inverse kinematics (too slow thus retreated to the normal one)
 % gik = generalizedInverseKinematics('RigidBodyTree',robot, ... 
@@ -92,16 +93,28 @@ for i=2:length(traj)
     % plotting data
     es = [es; xt(:,1:2)-x_bar(1:2)'];
     xs = [xs; xt];
+    xbars = [xbars; x_bar'];
 end
 
-% animate the robot
+%% animate the robot
+% Note: Animating is slower than the actual rate when the time resolution 
+% is too high, especially when the results from the ODE integration is passed.
 qs = xs(:,3:4);
 figure('Renderer', 'painters', 'Position', [1500 100 600 600]);
 f1 = show(robot,qs(1,:)');
 view(2);
 ax = gca;
 ax.Projection = 'orthographic';
+xlim([-1.2 1.2]);
+ylim([-1.2 1.2]);
+title('TVLQR with angular & cartesian fixed points');
 hold on
+
+% plot the goal and trajectory
+scatter(target(1),target(2),40,'*b');
+scatter(start(1),start(2),40,'*g');
+plot(xbars(:,1),xbars(:,2),'-g','LineWidth',1);
+
 framesPerSecond = length(xs)/Tf;
 r = rateControl(framesPerSecond);
 
@@ -132,17 +145,5 @@ end
 hold off
 
 % visualize the plots
-% fprintf('Total control: %d', norm(us));
-
-t = (ddt:ddt:length(es)*ddt);
-figure
-plot(t,es(:,1),'-r',t,es(:,2),'-g','LineWidth',1);
-xlabel('Time (s)');
-ylabel('Absolute error (m)');
-
-figure
-plot(t,xs(:,1),'-r',t,xs(:,2),'-g','LineWidth',1);
-legend('X','Y');
-xlabel('Time (s)');
-ylabel('Displacement(m)');
+visualize_plots(ddt, dt, es, xs, xbars);
 
