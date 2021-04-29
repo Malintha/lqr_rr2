@@ -1,5 +1,6 @@
 clear;
 addpath('./mr/')
+addpath('./plots/')
 
 % L1, L2: arm lengths
 L1 = 0.5;
@@ -18,6 +19,7 @@ target = [-0.5 0.6];
 % times for cartesian trajectory generation
 dt = 0.1;
 Tf = 3;
+
 % calculate the cartesian trajectory
 st_tr = trvec2tform([start 0]);
 target_tr = trvec2tform([target 0]);
@@ -34,14 +36,15 @@ B = @(theta1,theta2) [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta
                     1 0; 
                     0 1];
                 
-% cost matrices
-Q = [100 0 0 0; 
-     0 100 0 0;
-     0 0 100 0
-     0 0 0 100];
+% cost matrices Q: state, R: control
+Q = [10 0 0 0; 
+     0 10 0 0;
+     0 0 10 0
+     0 0 0 10];
  
-R = [1 0;
-    0 1];
+% use 0.1 to increase the aggressiveness of control  
+R = [10 0;
+    0 10];
 
 % initial conditions for the system
 % q = qinit;
@@ -52,13 +55,7 @@ xs = [];
 es = [];
 xbars = [];
 
-% initialize generalilzed inverse kinematics (too slow thus retreated to the normal one)
-% gik = generalizedInverseKinematics('RigidBodyTree',robot, ... 
-%                             'ConstraintInputs',{'position','joint'});
-% jointConst = constraintJointBounds(robot);
-% jointConst.Bounds = [theta_min pi-theta_min; theta_min pi-theta_min];
-% posConst = constraintPositionTarget('tool');
-
+% initialize inverse kinematics
 weights = [0, 0, 0, 1, 1, 0];
 ik = inverseKinematics('RigidBodyTree', robot);
 
@@ -72,9 +69,6 @@ for i=2:length(traj)
 
 %     get the theta_bar that needs the robot to be stabilized around
     q_bar = ik('tool', trvec2tform([x0(1:2)' 0]), weights, x0(3:4));
-%     posConst.TargetPosition = x_bar;
-%     q_bar = gik(x0(3:4), posConst, jointConst);
-
     x_bar = [x_bar(1:2); q_bar];
     
 %     linearized system around the fixed point 
@@ -105,9 +99,10 @@ f1 = show(robot,qs(1,:)');
 view(2);
 ax = gca;
 ax.Projection = 'orthographic';
-xlim([-1.2 1.2]);
-ylim([-1.2 1.2]);
-title('TVLQR with angular & cartesian fixed points');
+
+% xlim([-1.2 1.2]);
+% ylim([-1.2 1.2]);
+title('Angular & Cartesian Fixed Points Stabilization');
 hold on
 
 % plot the goal and trajectory
@@ -131,7 +126,9 @@ for i = 1:length(qs)
         hlines(j).MarkerSize=5; %changing marker size
     end
     drawnow
-%     filename = 'added_noise1.gif';
+
+    %% save to gif
+%     filename = './plots/added_noise1.gif';
 %     frame = getframe(1);
 %     im = frame2im(frame);
 %     [imind,cm] = rgb2ind(im,256);

@@ -3,21 +3,21 @@ function[] = visualize_plots(ddt, dt, es, xs, xbars)
     t = (ddt:ddt:t_max);
     te = (dt:dt:length(xbars)*dt);
     
-%     figure
-%     plot(t,es(:,1),'-r',t,es(:,2),'-g','LineWidth',1);
-%     xlabel('Time (s)');
-%     ylabel('Absolute Error (m)');
-%     xlim([0 t_max]);
-% 
-%     figure
-%     plot(t,xs(:,1),'-r',t,xs(:,2),'-g','LineWidth',1);
-%     hold on
-%     plot(te,xbars(:,1),'-+k',te,xbars(:,2),'-+b','LineWidth',0.5);
-%     legend('X','Y','X Set','Y Set');
-%     xlabel('Time (s)');
-%     ylabel('Displacement(m)');
-%     xlim([0 t_max]);
-%     hold off
+    figure
+    plot(t,es(:,1),'-r',t,es(:,2),'-g','LineWidth',1);
+    xlabel('Time (s)');
+    ylabel('Absolute Error (m)');
+    xlim([0 t_max]);
+
+    figure
+    plot(t,xs(:,1),'-r',t,xs(:,2),'-g','LineWidth',1);
+    hold on
+    plot(te,xbars(:,1),'-+k',te,xbars(:,2),'-+b','LineWidth',0.5);
+    legend('X','Y','X Set','Y Set');
+    xlabel('Time (s)');
+    ylabel('Displacement(m)');
+    xlim([0 t_max]);
+    hold off
 
     figure
     plot(t,xs(:,3),'-r',t,xs(:,4),'-g','LineWidth',1);
