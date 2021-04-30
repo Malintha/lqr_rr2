@@ -26,20 +26,17 @@ target_tr = trvec2tform([target 0]);
 traj = CartesianTrajectory(st_tr, target_tr, Tf, Tf/dt, 5);
 
 % system matrices for LQR with some modelling noise
-A = @(theta1,theta2) [1 0 (-L1*sin(theta1)-L2*sin(theta1+theta2)) (-L2*sin(theta1+theta2)); ... 
-                     0 1 (L1*cos(theta1)+L2*cos(theta1+theta2)) (L2*cos(theta1+theta2)); ...
-                     0 0 1 0; ... 
-                     0 0 0 1];
 
 B = @(theta1,theta2) [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta2); ...
                     L1*cos(theta1)+L2*cos(theta1+theta2) L2*cos(theta1+theta2);];
-                
+
+A = ones(2);               
 % cost matrices Q: state, R: control
 
-Q = eye(2)*100;
+Q = eye(2)*1000;
 % use 0.1 to increase the aggressiveness of control  
-R = [0.05 0;
-    0 0.05];
+R = [0.1 0;
+    0 0.1];
 
 % initial conditions for the system
 % q = qinit;
@@ -54,6 +51,13 @@ xbars = [];
 weights = [0, 0, 0, 1, 1, 0];
 ik = inverseKinematics('RigidBodyTree', robot);
 
+% initialize generalilzed inverse kinematics (too slow thus retreated to the old one)
+% gik = generalizedInverseKinematics('RigidBodyTree',robot, ... 
+%                             'ConstraintInputs',{'position','joint'});
+% jointConst = constraintJointBounds(robot);
+% jointConst.Bounds = [theta_min pi-theta_min; theta_min pi-theta_min];
+% posConst = constraintPositionTarget('tool');
+
 ddt = 0.01;
 for i=2:length(traj)
     if i<length(traj)
@@ -64,10 +68,12 @@ for i=2:length(traj)
 
 %     get the theta_bar that needs the robot to be stabilized around
     q_bar = ik('tool', trvec2tform([x0(1:2)' 0]), weights, x0(3:4));
-    x_bar = x_bar(1:2);
+
+%     posConst.TargetPosition = x_bar;
+%     q_bar = gik(x0(3:4), posConst, jointConst);
     
 %     linearized system around the fixed point 
-    A = zeros(2);
+
     Bt = B(q_bar(1), q_bar(2));
 
 %     get the LQR gain matrix
@@ -76,6 +82,7 @@ for i=2:length(traj)
 % solve the system with kinematics
 % use state as [x y theta1 theta2]
     tspan = (0:ddt:dt);
+    x_bar = x_bar(1:2);
     [~, xt] = ode45(@(t,xt)non_sys(xt, x_bar, k), tspan, x0);
     x0 = xt(end,:)';
     
