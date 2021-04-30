@@ -1,7 +1,7 @@
 function dx = non_sys(x,x_bar,k)
 
 %    centralization and calculate control
-   y = x;
+   y = x(1:2);
    x_hat = y-x_bar;
    u = -k*x_hat;
    

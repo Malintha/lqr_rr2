@@ -23,28 +23,23 @@ Tf = 3;
 % calculate the cartesian trajectory
 st_tr = trvec2tform([start 0]);
 target_tr = trvec2tform([target 0]);
-traj = CartesianTrajectory(st_tr, target_tr, 5, 5/dt, 5);
+traj = CartesianTrajectory(st_tr, target_tr, Tf, Tf/dt, 5);
 
 % system matrices for LQR with some modelling noise
 A = @(theta1,theta2) [1 0 (-L1*sin(theta1)-L2*sin(theta1+theta2)) (-L2*sin(theta1+theta2)); ... 
                      0 1 (L1*cos(theta1)+L2*cos(theta1+theta2)) (L2*cos(theta1+theta2)); ...
                      0 0 1 0; ... 
                      0 0 0 1];
-                
+
 B = @(theta1,theta2) [-L1*sin(theta1)-L2*sin(theta1+theta2) -L2*sin(theta1+theta2); ...
-                    L1*cos(theta1)+L2*cos(theta1+theta2) L2*cos(theta1+theta2);
-                    1 0; 
-                    0 1];
+                    L1*cos(theta1)+L2*cos(theta1+theta2) L2*cos(theta1+theta2);];
                 
 % cost matrices Q: state, R: control
-Q = [10 0 0 0; 
-     0 10 0 0;
-     0 0 10 0
-     0 0 0 10];
- 
+
+Q = eye(2)*100;
 % use 0.1 to increase the aggressiveness of control  
-R = [10 0;
-    0 10];
+R = [0.05 0;
+    0 0.05];
 
 % initial conditions for the system
 % q = qinit;
@@ -69,14 +64,14 @@ for i=2:length(traj)
 
 %     get the theta_bar that needs the robot to be stabilized around
     q_bar = ik('tool', trvec2tform([x0(1:2)' 0]), weights, x0(3:4));
-    x_bar = [x_bar(1:2); q_bar];
+    x_bar = x_bar(1:2);
     
 %     linearized system around the fixed point 
-    At = A(q_bar(1), q_bar(2));
+    A = zeros(2);
     Bt = B(q_bar(1), q_bar(2));
-    
+
 %     get the LQR gain matrix
-    k = lqr(At, Bt, Q, R);
+    k = lqr(A, Bt, Q, R);
     
 % solve the system with kinematics
 % use state as [x y theta1 theta2]
