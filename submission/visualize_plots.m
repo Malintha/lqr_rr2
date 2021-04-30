@@ -7,6 +7,7 @@ function[] = visualize_plots(ddt, dt, es, xs, xbars)
     plot(t,es(:,1),'-r',t,es(:,2),'-g','LineWidth',1);
     xlabel('Time (s)');
     ylabel('Absolute Error (m)');
+    legend('X Error','Y Error');
     xlim([0 t_max]);
 
     figure
